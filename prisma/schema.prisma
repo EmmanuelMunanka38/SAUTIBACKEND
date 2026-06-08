@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CITIZEN
+  MP
+  ADMIN
+}
+
+enum ComplaintStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum PromiseStatus {
+  NOT_STARTED
+  ONGOING
+  COMPLETED
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  fullName    String   @db.VarChar(255)
+  phoneNumber String   @unique @db.VarChar(20)
+  role        Role     @default(CITIZEN)
+  wardId      String   @db.Uuid
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ward         Ward          @relation(fields: [wardId], references: [id])
+  profile      Profile?
+  complaints   Complaint[]
+  replies      Reply[]
+  announcements Announcement[]
+  refreshToken RefreshToken?
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  token     String   @db.Text
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Otp {
+  id        String   @id @default(uuid()) @db.Uuid
+  phoneNumber String @db.VarChar(20)
+  code      String   @db.VarChar(10)
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phoneNumber, code])
+}
+
+model Profile {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @db.Uuid
+  gender     String?  @db.VarChar(10)
+  dateOfBirth DateTime?
+  address    String?  @db.Text
+  bio        String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Ward {
+  id            String      @id @default(uuid()) @db.Uuid
+  name          String      @unique @db.VarChar(255)
+  constituency  String      @default("Mbeya Town") @db.VarChar(255)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  users       User[]
+  complaints  Complaint[]
+}
+
+model Complaint {
+  id          String          @id @default(uuid()) @db.Uuid
+  title       String          @db.VarChar(255)
+  description String          @db.Text
+  category    String          @db.VarChar(100)
+  status      ComplaintStatus @default(PENDING)
+  userId      String          @db.Uuid
+  wardId      String          @db.Uuid
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  ward    Ward    @relation(fields: [wardId], references: [id])
+  replies Reply[]
+}
+
+model Reply {
+  id          String   @id @default(uuid()) @db.Uuid
+  complaintId String   @db.Uuid
+  senderId    String   @db.Uuid
+  message     String   @db.Text
+  createdAt   DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  sender    User      @relation(fields: [senderId], references: [id])
+}
+
+model Announcement {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(255)
+  content     String   @db.Text
+  publishedBy String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  publisher User @relation(fields: [publishedBy], references: [id])
+}
+
+model Promise {
+  id                 String        @id @default(uuid()) @db.Uuid
+  title              String        @db.VarChar(255)
+  description        String        @db.Text
+  category           String        @db.VarChar(100)
+  progressPercentage Int           @default(0)
+  status             PromiseStatus @default(NOT_STARTED)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
